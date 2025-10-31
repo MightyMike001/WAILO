@@ -16,6 +16,11 @@
     .app{position:relative;z-index:1;display:flex;flex-direction:column;height:100dvh;max-width:900px;margin:0 auto;overflow:hidden}
     header{position:sticky;top:0;background:rgba(10,16,32,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);z-index:2}
     .bar{display:flex;align-items:center;gap:12px;padding:14px 16px}
+    .status{margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .status-dot{width:8px;height:8px;border-radius:999px;background:#f87171;box-shadow:0 0 0 4px rgba(248,113,113,.15);transition:background .3s ease,box-shadow .3s ease}
+    .status[data-state="ok"] .status-dot{background:#34d399;box-shadow:0 0 0 4px rgba(52,211,153,.18)}
+    .status[data-state="error"] .status-dot{background:#f87171;box-shadow:0 0 0 4px rgba(248,113,113,.18)}
+    .status[data-state="pending"] .status-dot{background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.18)}
     .logo{width:28px;height:28px;border-radius:8px;background:radial-gradient(circle at 30% 30%,#38bdf8,#0ea5e9);}
     .title{font-weight:700}
     .tag{font-size:12px;color:var(--muted)}
@@ -47,6 +52,10 @@
           <div class="title">WAILO</div>
           <div class="tag">Werkplaats Assistent • Handboeken & RAG</div>
         </div>
+        <div class="status" id="status" data-state="pending">
+          <span class="status-dot"></span>
+          <span id="status-label">Verbinding wordt getest…</span>
+        </div>
       </div>
     </header>
     <div class="scroll" id="scroll">
@@ -65,8 +74,21 @@
 
   // --- Chat logic ---
   const WEBHOOK='https://node01n8n.mit.rd-n.nl/webhook/WAILO-RAG';
-  const elPad=document.getElementById('pad');const elScroll=document.getElementById('scroll');const elInp=document.getElementById('inp');const elSend=document.getElementById('send');
+  const elPad=document.getElementById('pad');const elScroll=document.getElementById('scroll');const elInp=document.getElementById('inp');const elSend=document.getElementById('send');const elStatus=document.getElementById('status');const elStatusLabel=document.getElementById('status-label');
   const history=[];
+
+  function setStatus(state,text){if(!elStatus)return;elStatus.dataset.state=state;if(elStatusLabel)elStatusLabel.textContent=text;}
+
+  async function testWebhookConnection(){
+    setStatus('pending','Verbinding wordt getest…');
+    try{
+      const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ping:true})});
+      if(!res.ok)throw new Error(await res.text()||res.statusText);
+      setStatus('ok','Verbonden met WAILO');
+    }catch{
+      setStatus('error','Webhook niet bereikbaar');
+    }
+  }
 
   function addMessage(role,content,{pending=false}={}){const msg=document.createElement('div');msg.className='msg '+role;if(pending)msg.dataset.pending='true';const roleDiv=document.createElement('div');roleDiv.className='role';const bubble=document.createElement('div');bubble.className='bubble';bubble.textContent=content;msg.append(roleDiv,bubble);elPad.appendChild(msg);elScroll.scrollTop=elScroll.scrollHeight;return bubble;}
 
@@ -76,9 +98,9 @@
 
   async function onSend(){const q=elInp.value.trim();if(!q)return;history.push({role:'user',content:q});addMessage('you',q);elInp.value='';elSend.disabled=true;const pendingBubble=addMessage('bot','Even kijken…',{pending:true});try{const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});const raw=await res.text();if(!res.ok)throw new Error(raw||res.statusText);let reply;try{reply=normaliseReply(JSON.parse(raw));}catch{reply=raw;}reply=reply||'Geen antwoord ontvangen.';history.push({role:'assistant',content:reply});updatePendingMessage(pendingBubble,reply);}catch(e){updatePendingMessage(pendingBubble,'Fout bij verbinding met WAILO. Controleer netwerk of CORS instellingen.');}finally{elSend.disabled=false;}}
   elSend.addEventListener('click',onSend);elInp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend();}});
+  testWebhookConnection();
   history.push({role:'assistant',content:'Hoi, ik ben WAILO – je werkplaats assistent. Geef het **serienummer**, **urenstand**, foutcodes en klachtomschrijving.'});
   addMessage('bot',history[0].content);
   </script>
 </body>
 </html>
-
