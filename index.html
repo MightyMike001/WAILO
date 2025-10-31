@@ -40,6 +40,15 @@
     .btn{height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--border);background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
 
     @media(max-width:600px){body{font-size:15px}}
+
+    #easter-egg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(96,165,250,.15),rgba(5,7,13,.9));opacity:0;transform:scale(.95);transition:opacity .4s ease,transform .4s ease;pointer-events:none;z-index:3;padding:24px;}
+    #easter-egg[data-visible="true"]{opacity:1;transform:scale(1);pointer-events:auto;}
+    #easter-egg .egg-card{position:relative;max-width:340px;background:rgba(12,18,32,.92);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:28px;text-align:center;}
+    #easter-egg .egg-icon{font-size:48px;margin-bottom:16px;}
+    #easter-egg .egg-title{font-weight:700;font-size:20px;margin-bottom:8px;}
+    #easter-egg .egg-text{color:var(--muted);font-size:15px;}
+    #egg-close{position:absolute;top:14px;right:14px;border:none;background:transparent;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;transition:color .3s ease;}
+    #egg-close:hover{color:var(--ink);}
   </style>
 </head>
 <body>
@@ -67,6 +76,15 @@
     </div>
   </div>
 
+  <div id="easter-egg" role="dialog" aria-modal="true" aria-hidden="true" data-visible="false">
+    <div class="egg-card">
+      <button id="egg-close" type="button" aria-label="Verberg verrassing">×</button>
+      <div class="egg-icon">🌌</div>
+      <div class="egg-title">Geheime hyperdrive geactiveerd!</div>
+      <p class="egg-text">Je hebt het verborgen WAILO portaal gevonden. Klaar om een nieuwe missie te starten? 🚀</p>
+    </div>
+  </div>
+
   <script>
   // --- Starfield animation ---
   const canvas=document.getElementById('starfield');const ctx=canvas.getContext('2d');let stars=[];function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}window.addEventListener('resize',resize);resize();for(let i=0;i<200;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:Math.random()*1+0.3,r:Math.random()*1.2+0.2,v:Math.random()*0.5+0.05});}
@@ -75,9 +93,15 @@
   // --- Chat logic ---
   const WEBHOOK='https://node01n8n.mit.rd-n.nl/webhook/WAILO-RAG';
   const elPad=document.getElementById('pad');const elScroll=document.getElementById('scroll');const elInp=document.getElementById('inp');const elSend=document.getElementById('send');const elStatus=document.getElementById('status');const elStatusLabel=document.getElementById('status-label');
+  const elLogo=document.querySelector('.logo');const elEgg=document.getElementById('easter-egg');const elEggClose=document.getElementById('egg-close');
+  let eggTimer=null;
   const history=[];
 
   function setStatus(state,text){if(!elStatus)return;elStatus.dataset.state=state;if(elStatusLabel)elStatusLabel.textContent=text;}
+
+  function showEasterEgg(){if(!elEgg)return;clearTimeout(eggTimer);elEgg.dataset.visible='true';elEgg.setAttribute('aria-hidden','false');eggTimer=setTimeout(hideEasterEgg,6000);}
+
+  function hideEasterEgg(){if(!elEgg)return;elEgg.dataset.visible='false';elEgg.setAttribute('aria-hidden','true');if(eggTimer){clearTimeout(eggTimer);eggTimer=null;}}
 
   async function testWebhookConnection(){
     setStatus('pending','Verbinding wordt getest…');
@@ -98,6 +122,9 @@
 
   async function onSend(){const q=elInp.value.trim();if(!q)return;history.push({role:'user',content:q});addMessage('you',q);elInp.value='';elSend.disabled=true;const pendingBubble=addMessage('bot','Even kijken…',{pending:true});try{const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});const raw=await res.text();if(!res.ok)throw new Error(raw||res.statusText);let reply;try{reply=normaliseReply(JSON.parse(raw));}catch{reply=raw;}reply=reply||'Geen antwoord ontvangen.';history.push({role:'assistant',content:reply});updatePendingMessage(pendingBubble,reply);}catch(e){updatePendingMessage(pendingBubble,'Fout bij verbinding met WAILO. Controleer netwerk of CORS instellingen.');}finally{elSend.disabled=false;}}
   elSend.addEventListener('click',onSend);elInp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend();}});
+  elLogo?.addEventListener('click',()=>{showEasterEgg();});
+  elEggClose?.addEventListener('click',e=>{e.stopPropagation();hideEasterEgg();});
+  elEgg?.addEventListener('click',e=>{if(e.target===elEgg)hideEasterEgg();});
   testWebhookConnection();
   history.push({role:'assistant',content:'Hoi, ik ben WAILO - je werkplaats assistent. Stel me een vraag over documentatie, werkinstructies.'});
   addMessage('bot',history[0].content);
