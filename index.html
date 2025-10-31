@@ -66,12 +66,18 @@
   // --- Chat logic ---
   const WEBHOOK='https://node01n8n.mit.rd-n.nl/webhook/WAILO-RAG';
   const elPad=document.getElementById('pad');const elScroll=document.getElementById('scroll');const elInp=document.getElementById('inp');const elSend=document.getElementById('send');
+  const history=[];
 
-  function addMessage(role,content){const msg=document.createElement('div');msg.className='msg '+role;const roleDiv=document.createElement('div');roleDiv.className='role';const bubble=document.createElement('div');bubble.className='bubble';bubble.textContent=content;msg.append(roleDiv,bubble);elPad.appendChild(msg);elScroll.scrollTop=elScroll.scrollHeight;}
+  function addMessage(role,content,{pending=false}={}){const msg=document.createElement('div');msg.className='msg '+role;if(pending)msg.dataset.pending='true';const roleDiv=document.createElement('div');roleDiv.className='role';const bubble=document.createElement('div');bubble.className='bubble';bubble.textContent=content;msg.append(roleDiv,bubble);elPad.appendChild(msg);elScroll.scrollTop=elScroll.scrollHeight;return bubble;}
 
-  async function onSend(){const q=elInp.value.trim();if(!q)return;addMessage('you',q);elInp.value='';elSend.disabled=true;try{const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});const data=await res.text();addMessage('bot',data);}catch(e){addMessage('bot','Fout bij verbinding met WAILO. Controleer netwerk of CORS instellingen.');}finally{elSend.disabled=false;}}
+  function updatePendingMessage(bubble,newText){if(!bubble)return;bubble.textContent=newText;const pending=bubble.parentElement;if(pending)delete pending.dataset.pending;elScroll.scrollTop=elScroll.scrollHeight;}
+
+  function normaliseReply(payload){if(!payload)return'';if(typeof payload==='string')return payload;const keys=['answer','message','response','text','output'];for(const key of keys){if(payload[key])return Array.isArray(payload[key])?payload[key].join('\n'):payload[key];}try{return JSON.stringify(payload,null,2);}catch{return String(payload);}}
+
+  async function onSend(){const q=elInp.value.trim();if(!q)return;history.push({role:'user',content:q});addMessage('you',q);elInp.value='';elSend.disabled=true;const pendingBubble=addMessage('bot','Even kijken…',{pending:true});try{const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});const raw=await res.text();if(!res.ok)throw new Error(raw||res.statusText);let reply;try{reply=normaliseReply(JSON.parse(raw));}catch{reply=raw;}reply=reply||'Geen antwoord ontvangen.';history.push({role:'assistant',content:reply});updatePendingMessage(pendingBubble,reply);}catch(e){updatePendingMessage(pendingBubble,'Fout bij verbinding met WAILO. Controleer netwerk of CORS instellingen.');}finally{elSend.disabled=false;}}
   elSend.addEventListener('click',onSend);elInp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend();}});
-  addMessage('bot','Hoi, ik ben WAILO – je werkplaats assistent. Geef het **serienummer**, **urenstand**, foutcodes en klachtomschrijving.');
+  history.push({role:'assistant',content:'Hoi, ik ben WAILO – je werkplaats assistent. Geef het **serienummer**, **urenstand**, foutcodes en klachtomschrijving.'});
+  addMessage('bot',history[0].content);
   </script>
 </body>
 </html>
