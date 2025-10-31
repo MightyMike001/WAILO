@@ -99,7 +99,7 @@
   async function onSend(){const q=elInp.value.trim();if(!q)return;history.push({role:'user',content:q});addMessage('you',q);elInp.value='';elSend.disabled=true;const pendingBubble=addMessage('bot','Even kijken…',{pending:true});try{const res=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});const raw=await res.text();if(!res.ok)throw new Error(raw||res.statusText);let reply;try{reply=normaliseReply(JSON.parse(raw));}catch{reply=raw;}reply=reply||'Geen antwoord ontvangen.';history.push({role:'assistant',content:reply});updatePendingMessage(pendingBubble,reply);}catch(e){updatePendingMessage(pendingBubble,'Fout bij verbinding met WAILO. Controleer netwerk of CORS instellingen.');}finally{elSend.disabled=false;}}
   elSend.addEventListener('click',onSend);elInp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();onSend();}});
   testWebhookConnection();
-  history.push({role:'assistant',content:'Hoi, ik ben WAILO – je werkplaats assistent. Geef het **serienummer**, **urenstand**, foutcodes en klachtomschrijving.'});
+  history.push({role:'assistant',content:'Hoi, ik ben WAILO - je werkplaats assistent. Stel me een vraag over documentatie, werkinstructies.'});
   addMessage('bot',history[0].content);
   </script>
 </body>
